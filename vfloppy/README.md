@@ -1,3 +1,5 @@
+<P>The repo is moved to https://github.com/electrickery/vfloppy.
+
 <P ALIGN="CENTER"><IMG SRC="./vfloppyConsole.png"><IMG SRC="./vfreadDemo.png">
 <H2>Intro</H2>
 <P>Vfloppy is a disk simulator for the Epson PX-4 and PX-8. It uses the
