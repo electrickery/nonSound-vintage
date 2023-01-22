@@ -14,8 +14,12 @@ use strict;
 
 my $debug = 0;
 
-my ($inFile) = @ARGV;
+my ($inFile, $addrStr) = @ARGV;
 my $instructions = &getInstructions();
+my $addr = oct($addrStr);
+my $oct_str;
+
+print hex($addr) . "/" . $addr . "/". oct($addr)."\n";
 
 open (INF, "<$inFile") or die "$0: Error opening input file $inFile";
 
@@ -38,7 +42,7 @@ while ($line = <INF>) {
     chomp $line;
     
     $data = getOpcode($line);
-    $address = getAddress($line, $address);
+    if ($debug) {$address = getAddress($line, $address);}
 
     my ($octOpcode, $asmOpcode, $key, $value); 
     $asmOpcode = "";   
@@ -62,7 +66,7 @@ while ($line = <INF>) {
         $dest1 = substr($data, -1, 1);
         $operandStr1 = &gramFormatter($mode1, $dest1);
         if ($debug) { print "S "; }
-        print "$asmOpcode $operandStr1";
+        print $address . " $asmOpcode $operandStr1";
         
     } elsif ("$instrType" eq "DOI") {
         $mode1 = substr($data, -4, 1);
@@ -73,7 +77,7 @@ while ($line = <INF>) {
         $operandStr2 = &operandFormatter($mode2, $dest2);
         
         if ($debug) { print "D "; }
-        print "$asmOpcode $operandStr1, $operandStr2";
+        print $address . " $asmOpcode $operandStr1, $operandStr2";
         
     } elsif ("$instrType" eq "BI") {
         my $octStr = substr($data, -4, 4);
@@ -82,20 +86,20 @@ while ($line = <INF>) {
         my $jmpAddr = &toOct(oct($address) + $offset);
         my $jmpStr = substr("00000" . $jmpAddr, -6, 6);
         if ($debug) { print "B "; }
-        print "$asmOpcode L$jmpStr     ; PC ". 
+        print $address . " $asmOpcode L$jmpStr     ; PC ". 
             (substr($offset,0,1) ne '-' ? ("+" . $offset) : $offset);
     } elsif ("$instrType" eq "SO") {
         my $octStr = substr($data, -1, 1);
         if ($debug) { print "O "; }
-        print "$asmOpcode $octStr";
+        print $address . " $asmOpcode $octStr";
     } elsif ("$instrType" eq "N") {
         if ($debug) { print "N "; }
-        print "$asmOpcode";       
+        print $address . " $asmOpcode";       
     } else {
         if ($debug) { print "? "; }
-        print "$asmOpcode";
+        print $address . " $asmOpcode";
     }
-    if ($debug) { print "      ($data)";}
+    if ($debug) { print oct($address) . "      ($data)";}
     print "\n";
 }
 
@@ -296,7 +300,7 @@ sub getInstructions() {
 006400  MARK/N
 0067DD  SXT/SOI
 01SSDD  MOV/DOI
-02SSDD  CMP/SOI
+02SSDD  CMP/DOI
 03SSDD  BIT/DOI
 04SSDD  BIC/DOI
 05SSDD  BIS/DOI
