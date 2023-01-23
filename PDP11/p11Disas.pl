@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 
-# p11Disas.pl - a simple octal-text based disassembler for PDP-11 code. V0.1
-#               fjkraan@xs4all.nl, 2014-07-01
+# p11Disas.pl - a simple octal-text based disassembler for PDP-11 code. V0.2
+#               fjkraan@electrickery.nl, 2014-07-01
 # usage: perl p11Disas.pl octal-code.txt
 #
 # supported formats: "aaaaaa / nnnnnn" or "nnnnnn" where aaaaaa is an address,
@@ -9,17 +9,16 @@
 #                    subsequent addresses are calculated. Branch labels have
 #                    the format "Laaaaaa".
 
+# the in-code option '$listFormat' switches from MACRO11 .mac format (0)
+# to MACRO11 .lst format (1).
 
 use strict;
 
 my $debug = 0;
+my $listFormat = 0;
 
-my ($inFile, $addrStr) = @ARGV;
+my ($inFile) = @ARGV;
 my $instructions = &getInstructions();
-my $addr = oct($addrStr);
-my $oct_str;
-
-print hex($addr) . "/" . $addr . "/". oct($addr)."\n";
 
 open (INF, "<$inFile") or die "$0: Error opening input file $inFile";
 
@@ -33,17 +32,20 @@ my %instrMap = %{&fillInstrMapFromString($instructions)};
 #    }
 
 $address = '';
+our $dataBlob = '';
 
 while ($line = <INF>) {
+    $dataBlob = '';
+    if ($line =~ m/^\s*$/) { next; }    # empty or whitespace line
+    if ($line =~ m/^[#;]/) { next; }    # comment line
     $lineCount++;
-    $data = '';
-    if ($line =~ m/^\s*$/) { next; }
-    if ($line =~ m/^[#;]/) { next; }
     chomp $line;
     
     $data = getOpcode($line);
-    if ($debug) {$address = getAddress($line, $address);}
-
+    $address = getAddress($line, $address);
+    if ($lineCount == 1) {
+        print ".=" . $address . "+LC\n";
+    }
     my ($octOpcode, $asmOpcode, $key, $value); 
     $asmOpcode = "";   
     while (($key,$value) = each %instrMap) {
@@ -60,15 +62,19 @@ while ($line = <INF>) {
         $asmOpcode = $1;
         $instrType = $2;
     }
-#    print "$address: ";
-    if ("$instrType" eq "SOI") {
+    if ("$instrType" eq "SOI") {                # Single Operand Instruction
         $mode1 = substr($data, -2, 1);
         $dest1 = substr($data, -1, 1);
         $operandStr1 = &gramFormatter($mode1, $dest1);
-        if ($debug) { print "S "; }
-        print $address . " $asmOpcode $operandStr1";
         
-    } elsif ("$instrType" eq "DOI") {
+        if ($debug) { print "S "; }
+        if ($listFormat) {
+            my $dataBlobFmt = &dataBlobFormat($dataBlob);
+            print "$address  $dataBlobFmt";
+        }
+        print "$asmOpcode $operandStr1  ";
+        
+    } elsif ("$instrType" eq "DOI") {           # Double Operand Instruction
         $mode1 = substr($data, -4, 1);
         $dest1 = substr($data, -3, 1);
         $operandStr1 = &operandFormatter($mode1, $dest1);
@@ -77,33 +83,61 @@ while ($line = <INF>) {
         $operandStr2 = &operandFormatter($mode2, $dest2);
         
         if ($debug) { print "D "; }
-        print $address . " $asmOpcode $operandStr1, $operandStr2";
+        if ($listFormat) {
+            my $dataBlobFmt = &dataBlobFormat($dataBlob);
+            print "$address  $dataBlobFmt";
+        }
+        print "$asmOpcode $operandStr1, $operandStr2  ";
         
-    } elsif ("$instrType" eq "BI") {
+    } elsif ("$instrType" eq "BI") {            # Branch Instructions
         my $octStr = substr($data, -4, 4);
         $offset = oct($octStr) & 0xFF;
         $offset = (($offset > 127) ? $offset - 255 : $offset + 1) * 2;
         my $jmpAddr = &toOct(oct($address) + $offset);
         my $jmpStr = substr("00000" . $jmpAddr, -6, 6);
+        
         if ($debug) { print "B "; }
-        print $address . " $asmOpcode L$jmpStr     ; PC ". 
-            (substr($offset,0,1) ne '-' ? ("+" . $offset) : $offset);
-    } elsif ("$instrType" eq "SO") {
+        if ($listFormat) {
+            my $dataBlobFmt = &dataBlobFormat($dataBlob);
+            print "$address  $dataBlobFmt";
+        }
+        print "$asmOpcode L$jmpStr     ; PC ". 
+            (substr($offset,0,1) ne '-' ? ("+" . $offset) : $offset . "  ");
+    } elsif ("$instrType" eq "SO") {            # Jump and Subroutine Instructions
         my $octStr = substr($data, -1, 1);
+        
         if ($debug) { print "O "; }
-        print $address . " $asmOpcode $octStr";
-    } elsif ("$instrType" eq "N") {
+        if ($listFormat) {
+            my $dataBlobFmt = &dataBlobFormat($dataBlob);
+            print "$address  $dataBlobFmt";
+        }
+        print "$asmOpcode $octStr  ";
+    } elsif ("$instrType" eq "N") {             # Misc. Instructions
         if ($debug) { print "N "; }
-        print $address . " $asmOpcode";       
-    } else {
+        if ($listFormat) {
+            my $dataBlobFmt = &dataBlobFormat($dataBlob);
+            print "$address  $dataBlobFmt";
+        }
+       print "$asmOpcode  ";       
+    } else {                                    # unknown instruction
         if ($debug) { print "? "; }
-        print $address . " $asmOpcode";
+        if ($listFormat) {
+            my $dataBlobFmt = &dataBlobFormat($dataBlob);
+            print "$address  $dataBlobFmt";
+        }
+        print "$asmOpcode  ";
     }
     if ($debug) { print oct($address) . "      ($data)";}
     print "\n";
 }
 
 close INF;
+
+
+sub dataBlobFormat() {
+    my ($data) = (@_);
+    return substr($data.'                     ', 0, 23);
+}
 
 sub toOct() {
     my ($numAddress) = (@_);
@@ -167,6 +201,7 @@ sub getOpcode() {
         return "?data?";
     }
     $data = &formatOctal($data);
+    $dataBlob = "$dataBlob $data";
     return $data;
 }
 
