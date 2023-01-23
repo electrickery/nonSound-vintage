@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 
 # p11Disas.pl - a simple octal-text based disassembler for PDP-11 code. V0.2
-#               fjkraan@electrickery.nl, 2014-07-01
+#               fjkraan@electrickery.nl, 2023-01-23
 # usage: perl p11Disas.pl octal-code.txt
 #
 # supported formats: "aaaaaa / nnnnnn" or "nnnnnn" where aaaaaa is an address,
