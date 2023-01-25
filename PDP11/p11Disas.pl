@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # 
 # p11Disas.pl - a simple octal-text based disassembler for PDP-11 code. V0.2
-#               fjkraan@electrickery.nl, 2023-01-23
+#               fjkraan@electrickery.nl, 2014-07-01
 # usage: perl p11Disas.pl octal-code.txt
 #
 # supported formats: "aaaaaa / nnnnnn" or "nnnnnn" where aaaaaa is an address,
@@ -15,7 +15,7 @@
 use strict;
 
 my $debug = 0;
-my $listFormat = 0;
+my $listFormat = 1;
 
 my ($inFile) = @ARGV;
 my $instructions = &getInstructions();
@@ -69,7 +69,7 @@ while ($line = <INF>) {
         
         if ($debug) { print "S "; }
         if ($listFormat) {
-            my $dataBlobFmt = &dataBlobFormat($dataBlob);
+            my $dataBlobFmt = &dataBlobFormat();
             print "$address  $dataBlobFmt";
         }
         print "$asmOpcode $operandStr1  ";
@@ -84,7 +84,7 @@ while ($line = <INF>) {
         
         if ($debug) { print "D "; }
         if ($listFormat) {
-            my $dataBlobFmt = &dataBlobFormat($dataBlob);
+            my $dataBlobFmt = &dataBlobFormat();
             print "$address  $dataBlobFmt";
         }
         print "$asmOpcode $operandStr1, $operandStr2  ";
@@ -98,7 +98,7 @@ while ($line = <INF>) {
         
         if ($debug) { print "B "; }
         if ($listFormat) {
-            my $dataBlobFmt = &dataBlobFormat($dataBlob);
+            my $dataBlobFmt = &dataBlobFormat();
             print "$address  $dataBlobFmt";
         }
         print "$asmOpcode L$jmpStr     ; PC ". 
@@ -108,24 +108,25 @@ while ($line = <INF>) {
         
         if ($debug) { print "O "; }
         if ($listFormat) {
-            my $dataBlobFmt = &dataBlobFormat($dataBlob);
+            my $dataBlobFmt = &dataBlobFormat();
             print "$address  $dataBlobFmt";
         }
         print "$asmOpcode $octStr  ";
     } elsif ("$instrType" eq "N") {             # Misc. Instructions
         if ($debug) { print "N "; }
         if ($listFormat) {
-            my $dataBlobFmt = &dataBlobFormat($dataBlob);
+            my $dataBlobFmt = &dataBlobFormat();
             print "$address  $dataBlobFmt";
         }
        print "$asmOpcode  ";       
     } else {                                    # unknown instruction
         if ($debug) { print "? "; }
         if ($listFormat) {
-            my $dataBlobFmt = &dataBlobFormat($dataBlob);
+            my $dataBlobFmt = &dataBlobFormat();
             print "$address  $dataBlobFmt";
         }
-        print "$asmOpcode  ";
+        print "$asmOpcode?? " . asASCII($data);
+        
     }
     if ($debug) { print oct($address) . "      ($data)";}
     print "\n";
@@ -133,10 +134,24 @@ while ($line = <INF>) {
 
 close INF;
 
+sub asASCII() {
+    ($data) = (@_);
+    my $dataInt = oct($data);
+    my $highByte = int($dataInt / 256);
+    my $lowByte  = $dataInt - $highByte * 256;
+    my $highChar = chr($highByte);;
+    if ($highByte <= 31 || $highByte >= 127) {
+        $highChar = ".";
+    }    
+    my $lowChar  = chr($lowByte);
+    if ($lowByte <= 31 || $lowByte >= 127) {
+        $lowChar = ".";
+    }    
+    return $highChar . $lowChar;
+}
 
 sub dataBlobFormat() {
-    my ($data) = (@_);
-    return substr($data.'                     ', 0, 23);
+    return substr($dataBlob . '                                          ', 0, 40);
 }
 
 sub toOct() {
@@ -201,7 +216,7 @@ sub getOpcode() {
         return "?data?";
     }
     $data = &formatOctal($data);
-    $dataBlob = "$dataBlob $data";
+    $dataBlob = "$dataBlob  $data";
     return $data;
 }
 
